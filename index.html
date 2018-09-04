@@ -1,0 +1,462 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+		<link rel="stylesheet" type="text/css" href="lib/leaflet.css">
+		<link rel="stylesheet" type="text/css" href="style/main.css">
+		<link rel="stylesheet" type="text/css" href="style/fullscreen.css">
+		<link rel="stylesheet" type="text/css" href="font-awesome-4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
+		<script type="text/javascript" src="echarts/jquery-1.11.2.min.js"></script>
+		<script type="text/javascript" src="lib/leaflet.js"></script>
+		<script type="text/javascript" src="lib/proj4.js"></script>
+		<script type="text/javascript" src="lib/proj4leaflet.js"></script>
+		<script type="text/javascript" src="layer/TDTLayer.js"></script>
+		
+		<script src="esri/esri-leaflet.js"></script>
+		<link rel="stylesheet" type="text/css" href="esri/esri-leaflet-geocoder.css"> 
+		<script type="text/javascript" src="esri/esri-leaflet-geocoder.js"></script>
+
+	    <link rel="stylesheet" type="text/css" href="control/OverviewControl/Control.MiniMap.css">
+		<script type="text/javascript" src="control/OverviewControl/Control.MiniMap.js"></script>
+		<link rel="stylesheet" type="text/css" href="lib/leaflet.toolbar.css">
+		<script type="text/javascript" src="lib/leaflet.toolbar-src.js"></script> 
+		<script type="text/javascript" src="drag.js"></script>
+		<script type="text/javascript" src="lib/OSMBuildings-Leaflet.js"></script>
+		<!--<script type="text/javascript" src="echarts/main.min.js"></script>
+		<script type="text/javascript" src="echarts/AirQualityData.js"></script>  -->
+
+		<!--<script type="text/javascript" src="echarts/leaflet-echarts.js"></script>
+		<script type="text/javascript" src="echarts/echarts.source.js"></script>
+		<script type="text/javascript" src="echarts/migrateData.js"></script>-->
+		 
+	</head>
+	<body>
+		<div id="map"></div>
+		 <div id='content'>
+		 	 <div id="title" style="height: 30px;width:100%;background-color: #FF00FF;position: absolute;left: 0px;top: 0px;border-radius: 5px 5px 0 0;cursor: pointer;">
+		 	 	<span style="position: absolute;left: 5px;top: 5px;">信息窗口</span></span></div>
+            <div  style="margin-top: 20px;">
+            	<button type="button" onclick="getLatlng()">获取经纬度</button>
+				<input id="latlng" type="text" ><i class="fa fa-globe" aria-hidden="true"></i>
+            </div>	
+		</div> 
+
+		<script type="text/javascript">	
+		    var map ;	
+			
+				
+				//leaflet默认投影是EPSG3857
+
+				// 天地图影像
+				/*L.tileLayer("http://t{s}.tianditu.cn/img_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=img&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles", {
+               	 subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"]
+           	    }).addTo(map);
+           	    // 影像地名标注
+	            L.tileLayer("http://t{s}.tianditu.cn/cia_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=cia&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles", {
+	                subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"]
+	            }).addTo(map);
+	            // 边界
+	            L.tileLayer("http://t{s}.tianditu.cn/ibo_w/wmts?service=wmts&request=GetTile&version=1.0.0&LAYER=ibo&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles", {
+	                subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"]
+	            }).addTo(map);	*/	
+
+	           var gaode= L.tileLayer('http://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+		            subdomains: "1234"
+		        });
+			    var gaodeImg= L.layerGroup([L.tileLayer('http://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+		            subdomains: "1234"
+		        }), L.tileLayer('http://t{s}.tianditu.cn/DataServer?T=cta_w&X={x}&Y={y}&L={z}', {
+		            subdomains: "1234"
+		        })]);
+		        var geoGrayMap=L.tileLayer('http://map.geoq.cn/ArcGIS/rest/services/ChinaOnlineStreetPurplishBlue/MapServer/tile/{z}/{y}/{x}');
+
+		        var arcgisLayer=  L.esri.dynamicMapLayer({
+   						 url: 'http://172.16.6.51:6080/arcgis/rest/services/guangZhouArea/MapServer',
+   						 opacity: 0.7
+  				});
+	
+			var veclayer=new TDTLayer("tdtmap",{});
+			var vcalayer=new TDTLayer("tdtmapi",{});
+
+			var veclayer2=new TDTLayer("tdtmap",{minZoom:5,maxZoom:15});
+			var vcalayer2=new TDTLayer("tdtmapi",{minZoom:5,maxZoom:15});
+
+			var imglayer=new TDTLayer("tdtimg",{});
+			var imgilayer=new TDTLayer("tdtimgi",{});
+			var tdt_Vec=L.layerGroup([veclayer,vcalayer]);
+			var tdt_Vec2=L.layerGroup([veclayer2,vcalayer2]);
+			var tdt_Img=L.layerGroup([imglayer,imgilayer]);
+
+			var osmb = new OSMBuildings(map)
+				.date(new Date(2017, 5, 15, 17, 30))
+				.load()
+				.click(function(id) {
+				alert('feature id clicked: '+id.feature);
+			});
+			var baseMaps = {
+			    "天地图矢量": tdt_Vec,
+			    "天地图影像": tdt_Img,
+			    "高德地图":   gaode,
+			    "高德影像":   gaodeImg,
+			    "GeoQ灰色底图": geoGrayMap
+			};
+			 
+			var overlayMaps = {
+			    //在base layer之上放置的其他东西
+			    'arcgis矢量图':arcgisLayer,
+			    'OSMBuildings':osmb
+			};
+			var mapOptions={
+					center: [23.13, 113.27],
+   					zoom: 10,
+   					maxZoom:18,
+   					crs: L.CRS.EPSG3857,
+   					attributionControl:false,
+	   			//	attribution: 'ⓒ 2012 Daum',
+   					layers:[tdt_Vec]
+				};
+			map = L.map('map',mapOptions);
+	
+		   // L.marker([23.13, 113.27],{draggable: false,title: '广州',opacity: 1}).bindLabel("广州").addTo(map);
+			L.marker([23.13, 113.27],{draggable: false,title: '广州',opacity: 1}).bindPopup("广州").openPopup().addTo(map);
+	        //L.popup().setLatLng(e.latlng).setContent(e.latlng.toString()).openOn(map)
+
+
+			L.control.layers(baseMaps, overlayMaps).addTo(map); //图层控制
+			L.control.scale().addTo(map);	   //比例尺
+
+			var miniMap = new L.Control.MiniMap(tdt_Vec2, { toggleDisplay: true }).addTo(map);  //鹰眼图
+			 var MyCustomAction = L.Toolbar2.Action.extend({   //首页
+	            options: {
+	                toolbarIcon: {
+	                    html: '&#9873;',
+	                    tooltip: 'HOME'
+	                }
+	            },
+	            addHooks: function () {
+	                map.setView([23.13, 113.27], 12);
+	            }
+            });
+
+	        new L.Toolbar2.Control({
+	        	position:'topleft',
+	            actions: [MyCustomAction]
+	        }).addTo(map);
+
+	        //自定义button
+	       L.Control.Button = L.Control.extend({
+	       		options: {
+			        position: 'topleft' //初始位置
+
+			    },
+			    flag:false,
+			    myLayerGroup:new L.LayerGroup(),
+			    initialize: function (options) {
+			        L.Util.extend(this.options, options);
+
+			    },
+			     onAdd: function (map) {
+			     	this._container = L.DomUtil.create('div', 'leaflet-control-button');
+			     	var button=document.createElement('button');
+			     	button.id='toggleBtn';
+			     	button.type='button';
+			     	button.innerHTML="添加标注";
+			     	button.title="添加标注";
+			     	button.style.cursor='pointer';
+			     	this._button = button;
+			     	var i=document.createElement('i');
+			     	i.className="fa fa-map-marker" ;
+			     	this._i=i;
+			     	this._button.appendChild(this._i);
+			     	this._container.appendChild(this._button);
+			     	
+			     	L.DomEvent.addListener(this._button, 'click', this._onToggle, this);
+
+			     	return this._container;
+			     },
+			     _onToggle:function(){
+			     	if(!this.flag){
+			     		map.on('click',function(e){
+			     			var marker=new L.marker(e.latlng);
+			     			this.myLayerGroup.addLayer(marker);
+			     			map.addLayer(this.myLayerGroup);			     		 	
+			     		},this);
+			     		this.flag=true;     	
+			     	}else{
+			     		this.myLayerGroup.clearLayers();
+			     		map.off('click');
+			     		this.flag=false;
+			     	}
+			     	
+				},
+	       });
+	       map.addControl(new L.Control.Button());
+
+	       //搜索控件
+	       var searchControl = L.esri.Geocoding.geosearch().addTo(map);
+
+		  var results = L.layerGroup().addTo(map);
+
+		  searchControl.on('results', function(data){
+		    results.clearLayers();
+		    for (var i = data.results.length - 1; i >= 0; i--) {
+		      results.addLayer(L.marker(data.results[i].latlng).bindPopup("<b>中国</b><br>"+data.results[i].text));
+		    }
+		  });
+
+		  function getLatlng(){
+
+		  }
+		 function move(){
+		    // 获取元素和初始值
+		    var oBox = document.getElementById('content'),disX = 0, disY = 0;
+		    // 获取浏览器可见区域宽高，div宽高
+		    var browserWidth = document.documentElement.clientWidth,
+		        browserHeight = document.documentElement.clientHeight,
+		        boxWidth = document.getElementById('content').offsetWidth,
+		        boxHeight = document.getElementById('content').offsetHeight;
+		    // 容器鼠标按下事件
+		    oBox.onmousedown = function (e){
+		        var e = e || window.event;
+		        // 鼠标相对于div左侧位置
+	            disX = e.clientX - this.offsetLeft;
+		        disY = e.clientY - this.offsetTop;
+		        document.onmousemove = function (e){
+		        
+		            var e = e || window.event;
+		            oBox.style.left = (e.clientX - disX) + 'px';
+		            if((e.clientX - disX)<=0){
+	                    oBox.style.left = 0;
+	             			}else if((boxWidth - disX + e.clientX) >= browserWidth){
+						oBox.style.left = browserWidth - boxWidth + "px";
+					}
+					oBox.style.top = (e.clientY - disY) + 'px';
+	                if((e.clientY - disY) <= 0){
+	                    oBox.style.top = 0;
+	                }else if((boxHeight - disY + e.clientY) >= browserHeight){
+						oBox.style.top = browserHeight - boxHeight + "px";
+					}
+		        };
+	 
+		        document.onmouseup = function (){
+		            document.onmousemove = null;
+		            document.onmouseup = null;
+		        };
+		        return false;
+		    };
+	    }
+	  
+		//move();
+
+     dragBox(document.querySelector("#title"), document.querySelector("#content"));
+
+
+			//空气质量图
+  		/*	var overlay = new L.echartsLayer3(map, echarts);
+		    var chartsContainer = overlay.getEchartsContainer();
+		    var myChart = overlay.initECharts(chartsContainer);
+		    var data=new myData();
+		    overlay.setOption(data.option);	 */
+
+		    //迁徙图
+		 /*   var overlay = new L.echartsLayer(map, echarts);
+		    var chartsContainer=overlay.getEchartsContainer();
+		    var myChart=overlay.initECharts(chartsContainer);
+		    window.onresize = myChart.onresize;
+		    overlay.setOption(migrateOption);  */
+	
+
+				/**支持EPSG4326投影 ****/
+
+
+			/*	 map = L.map('map', {
+					   crs: L.CRS.EPSG4326
+					}).setView([30, 120], 15);
+					 
+				var tdt_vec=L.tileLayer('http://t{s}.tianditu.com/vec_c/wmts?layer=vec&style=default&tilematrixset=c&Service=WMTS&Request=GetTile&Version=1.0.0&Format=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}', {
+					   maxZoom: 17,
+					   tileSize: 256,
+					   zoomOffset: 1,
+					   subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"]
+				}).addTo(map );
+
+				var tdt_cva=L.tileLayer('http://t{s}.tianditu.com/cva_c/wmts?layer=cva&style=default&tilematrixset=c&Service=WMTS&Request=GetTile&Version=1.0.0&Format=tiles&TileMatrix={z}&TileCol={x}&TileRow={y}', {
+					   maxZoom: 17,
+					   tileSize: 256,
+					   zoomOffset: 1,
+					   subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"]
+					}).addTo(map );   
+				 var arcgisLayer=  L.esri.dynamicMapLayer({
+   						 url: 'http://172.16.6.51:6080/arcgis/rest/services/guangZhouArea/MapServer',
+   						 opacity: 0.7
+  				});
+	
+
+				var tdtLayer=L.layerGroup([tdt_vec,tdt_cva]);
+				var baseMaps={
+					"天地图":tdtLayer
+					
+				};
+				var overlayMaps={
+					"arcgis图层":arcgisLayer
+				};
+			    L.control.layers(baseMaps, overlayMaps).addTo(map); //图层控制  */
+
+					//加载百度地图
+
+		/*	var subdomains='0123456789';
+
+			var baiduLayer = new L.TileLayer('http://online{s}.map.bdimg.com/tile/?qt=tile&x={x}&y={y}&z={z}&styles=pl&udt=20150518', {
+			        maxZoom: 18,
+			        minZoom: 5,
+			        subdomains: [0,1,2],
+			        tms: true
+			    });
+			var baiduLayer2 = new L.TileLayer('http://online{s}.map.bdimg.com/tile/?qt=tile&x={x}&y={y}&z={z}&styles=pl&udt=20150518', {
+			        maxZoom: 14,
+			        minZoom: 3,
+			        subdomains: [0,1,2],
+			        tms: true
+			    });
+			var baidu_img = new L.tileLayer('http://shangetu{s}.map.bdimg.com/it/u=x={x};y={y};z={z};v=009;type=sate&fm=46', {
+                maxZoom: 18,
+			    minZoom: 3, 
+			    subdomains: subdomains, 
+			    tms: true
+            });
+            var baidu_imgz=new  L.tileLayer('http://online{s}.map.bdimg.com/tile/?qt=tile&x={x}&y={y}&z={z}&styles=sl&v=020', {
+                 maxZoom: 18,
+			     minZoom: 3, 
+			     subdomains: subdomains, 
+			     tms: true
+            });
+            var baiduImg=L.layerGroup([baidu_img,baidu_imgz]);  
+
+
+		       var crs = new L.Proj.CRS('EPSG:900913',
+	            '+proj=merc +a=6378206 +b=6356584.314245179 +lat_ts=0.0 +lon_0=0.0 +x_0=0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs',
+	            {
+	                resolutions: function () {
+	                    level = 19
+	                    var res = [];
+	                    res[0] = Math.pow(2, 18);
+	                    for (var i = 1; i < level; i++) {
+	                        res[i] = Math.pow(2, (18 - i))
+	                    }
+	                    return res;
+	                }(),
+	                origin: [0,0],
+	                bounds: L.bounds([20037508.342789244, 0], [0, 20037508.342789244])
+	            });
+           
+
+		          map = L.map('map', {
+		                center: [23.13, 113.27],
+	   					zoom: 12,
+	   					minZoom:10,
+	   					crs: crs,
+	   					attributionControl:false,
+	   					//attribution: 'ⓒ 2012 Daum',
+	   					layers:[baiduImg]
+		            });
+		    var baseMaps = {
+			    "百度地图": baiduLayer,
+			    "百度地图影像":baiduImg
+			    
+			};
+            L.control.layers(baseMaps, null, { position: "topright" }).addTo(map); 
+            L.control.scale({maxWidth:100,metric:true,imperial:false}).addTo(map);
+            //  L.control.attribution().removeFrom(map);
+            //添加自定义控件
+            L.Control.contentTest= L.Control.extend({
+		    //在此定义参数    
+			    options: {
+			    	 position: 'topleft' //初始位置
+			    	
+			    },
+			    //在此初始化
+			    initialize: function (options) {
+			        L.Util.extend(this.options, options);
+			    },
+			    onAdd: function (map) {
+			       //可在此添加控件内容
+			       this._container = L.DomUtil.create('div', 'leaflet-container');
+			       L.DomUtil.setOpacity(this._container,0.8);
+			       L.DomUtil.addClass(this._container,'.leaflet-container');
+			       var  label=document.createElement('label');
+			       label.innerHTML="hello my label";
+			       this._label=label;
+
+			       /* var closebutton = document.createElement('a');
+			        closebutton.id = 'leaflet-control-geosearch-close';
+			        closebutton.className = 'glyphicon glyphicon-remove';
+			        this._closebutton = closebutton;
+			        
+			        this._container.appendChild(this._closebutton);*/
+			 /*      var myBtn=document.createElement('button');
+			        myBtn.innerHTML="关闭";
+			        this._button=myBtn;
+
+			        var contentDiv=document.createElement('div');
+			      //  contentDiv.style.width="300px";
+			      //  contentDiv.style.height="300px";
+			        contentDiv.innerHTML="sihdifuhdhgoirjogighihgifhgfhgif";
+			        this._contentDiv=contentDiv;
+
+			        this._container.appendChild(this._label);
+			        this._container.appendChild(this._button);
+			        this._container.appendChild(this._contentDiv);
+
+			         L.DomEvent.addListener(this._button, 'click', this._onCloseControl, this);
+			          return this._container;
+			    },
+			    _onCloseControl: function () {
+			       // this._map.options.Legend = false;
+			       // this._container.removeFrom(this._map);
+			       this.remove();
+			    },
+		    });
+		    map.addControl(new L.Control.contentTest({position: "topright"}));
+		    var miniMap = new L.Control.MiniMap(baiduLayer2, { toggleDisplay: true }).addTo(map);  //鹰眼图
+
+		    new L.marker([39.91349,116.407945]).addTo(map);   //添加标注
+		    var MyCustomAction = L.Toolbar2.Action.extend({   //首页
+	            options: {
+	                toolbarIcon: {
+	                    html: '&#9873;',
+	                    tooltip: 'HOME'
+	                }
+	            },
+	            addHooks: function () {
+	                map.setView([23.13, 113.27], 12);
+	            }
+            });
+
+	        new L.Toolbar2.Control({
+	        	position:'topleft',
+	            actions: [MyCustomAction]
+	        }).addTo(map);
+            
+	        var lc = L.control.locate({
+			    position: 'topleft',
+			    strings: {
+			        title: "Show me where I am, yo!"
+			    }
+			}).addTo(map); 
+
+		   // map.setView([39.91349,116.407945], 15);
+
+		 /* var searchControl = L.esri.Geocoding.geosearch().addTo(map);
+
+		  var results = L.layerGroup().addTo(map);
+
+		  searchControl.on('results', function(data){
+		    results.clearLayers();
+		    for (var i = data.results.length - 1; i >= 0; i--) {
+		      results.addLayer(L.marker(data.results[i].latlng));
+		    }
+		  });*/
+
+		</script>
+	</body>
+</html>
